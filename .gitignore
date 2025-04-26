@@ -1,5 +1,5 @@
-src/images/*.h
-src/roms/*.h
+#src/images/*.h
+#src/roms/*.h
 **/.DS_Store
 **/.vscode
 **/build
