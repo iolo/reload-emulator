@@ -1,3 +1,4 @@
+#include <stdint.h>
 //#include "neptune.h"
 //#include "moon_patrol.h"
 #include "karateka.h"
@@ -15,4 +16,4 @@ uint8_t* apple2_po_images[] = {};
 
 uint32_t apple2_po_image_sizes[] = {};
 
-char* apple2_msc_images[] = {};
+char* apple2_msc_images[] = { "Total Replay v5.2.hdv" };
