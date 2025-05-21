@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #pragma once
 
 // clang-format off
