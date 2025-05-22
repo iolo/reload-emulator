@@ -8,7 +8,7 @@
 #include "sokol_glue.h"
 #include "chips/chips_common.h"
 #include "gfx.h"
-#include "shaders.glsl.h"
+#include "shaders.glsl.glsl430.h"
 #include <assert.h>
 #include <stdlib.h> // malloc/free
 #include <string.h>
