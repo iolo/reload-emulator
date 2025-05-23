@@ -42,10 +42,14 @@
 	orrs \rd, r7
 .endm
 
+// extern void apple2_render_scanline(const uint32_t *pixbuf, uint32_t *scanbuf, size_t n_pix);
 decl_func apple2e_render_scanline
 	push {r3-r7, lr}
 	
-	lsls r2, #1
+  //@@ zoom 2x
+	//@@lsls r2, #1
+  //@@ zoom 4x
+	lsls r2, #2
 	add r2, r1
 	mov ip, r2
 	ldr r2, =(SIO_BASE + SIO_INTERP0_ACCUM0_OFFSET)
@@ -57,18 +61,27 @@ decl_func apple2e_render_scanline
 	str r7, [r2, #ACCUM1_OFFS]
 	decode_pixel_data r3
 	decode_pixel_data r4
-    stmia r1!, {r3, r4}
+    //@@ zoom 2x
+    //@@stmia r1!, {r3, r4}
+    //@@ zoom 4x
+    stmia r1!, {r3}
+    stmia r1!, {r3}
+    stmia r1!, {r4}
+    stmia r1!, {r4}
 	cmp r1, ip
     bne 1b
 
 	pop {r3-r7, pc}
 
-//
+// extern void copy_tmdsbuf(uint32_t *dest, const uint32_t *src);
 decl_func copy_tmdsbuf
 	push {r2-r7, lr}
 
 #ifdef OLIMEX_NEO6502
+// 800x600, 800*3/2=1200dword, 200(repeat)*6(dward at once)=1200
 .rept 200
+//@@ 480x800, 480*3/2=720dword, 120(repeat)*6(dword at once)=720
+//@@.rept 120
 #else
 .rept 200
 #endif

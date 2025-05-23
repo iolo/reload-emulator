@@ -33,7 +33,7 @@
 #include "pico/stdlib.h"
 
 #ifdef OLIMEX_NEO6502
-#include "roms/apple2ee_roms.h"
+#include "roms/apple2e_roms.h"
 #else
 #include "roms/apple2e_roms.h"
 #endif
@@ -125,6 +125,23 @@ void app_init(void) {
     apple2e_init(&state.apple2e, &desc);
 }
 
+// official spec: https://www.waveshare.com/wiki/3.5inch_480x800_LCD
+const struct dvi_timing __not_in_flash_func(dvi_timing_480x800p_60hz) = {
+	.h_sync_polarity   = false,
+	.h_front_porch     = 10,
+	.h_sync_width      = 10,
+	.h_back_porch      = 20,
+	.h_active_pixels   = 480,
+
+	.v_sync_polarity   = true,
+	.v_front_porch     = 2,
+	.v_sync_width      = 2,
+	.v_back_porch      = 4,
+	.v_active_lines    = 800,
+
+	.bit_clk_khz       = 306000
+};
+
 #ifdef OLIMEX_NEO6502
 // TMDS bit clock 400 MHz
 // DVDD 1.3V
@@ -132,6 +149,10 @@ void app_init(void) {
 #define FRAME_HEIGHT 600
 #define VREG_VSEL    VREG_VOLTAGE_1_30
 #define DVI_TIMING   dvi_timing_800x600p_60hz
+//@@#define FRAME_WIDTH  480
+//@@#define FRAME_HEIGHT 800
+//@@#define VREG_VSEL    VREG_VOLTAGE_1_30
+//@@#define DVI_TIMING   dvi_timing_480x800p_60hz
 #else
 // TMDS bit clock 400 MHz
 // DVDD 1.3V
@@ -373,8 +394,28 @@ static inline void __not_in_flash_func(render_scanline)(const uint32_t *pixbuf, 
     apple2e_render_scanline(pixbuf, scanbuf, n_pix);
 }
 
-#define APPLE2E_EMPTY_LINES   ((FRAME_HEIGHT - APPLE2E_SCREEN_HEIGHT * 2) / 4)
-#define APPLE2E_EMPTY_COLUMNS ((FRAME_WIDTH - APPLE2E_SCREEN_WIDTH) / 2)
+//@@ (600 - 192_a2_height * 2_picodvi) / 2_top_bottom / 2_picodvi = 54
+//@@ 600 = (54 + 192_a2_height + 54) * 2_picodvi
+//@@#define APPLE2E_EMPTY_LINES   ((FRAME_HEIGHT - APPLE2E_SCREEN_HEIGHT * 2) / 4)
+//@@ (800 - 280_a2_width * 2_asm) / 2_left_right = 120
+//@@ 800 = 120 + (280_a2_width * 2_asm) + 120
+//@@#define APPLE2E_EMPTY_COLUMNS ((FRAME_WIDTH - APPLE2E_SCREEN_WIDTH) / 2)
+
+//@@ in portrait mode, frame W x H = apple H x W
+//@@ (600 - 280_a2_width * 2_picodvi) / 2_top_bottom / 2_picodvi = 10
+//@@ 600 = (10 + 280_a2_width + 10) * 2_picodvi
+#define APPLE2E_EMPTY_LINES   ((FRAME_HEIGHT - 280*2) / 2 / 2)
+//@@ (800 - 192_a2_height * * 4_asm) / 2_left_right = 16
+//@@ 800 = 16 + (192_a2_height * 4_asm) + 16
+#define APPLE2E_EMPTY_COLUMNS ((FRAME_WIDTH - 192*4) / 2)
+
+// in portrait mode, frame W x H = apple H x W
+// (800 - 280_a2_width * 2_picodvi) / 2_top_bottom = 120
+// 800 = 120 + (280_a2_width * 2_picodvi) + 120
+//@@#define APPLE2E_EMPTY_LINES   ((FRAME_HEIGHT - 280*2) / 2)
+// (480 - 192_a2_height * 2_asm) / 2_left_right = 48
+// 480 = 48 + (192_a2_height * 2_asm) + 48
+//@@#define APPLE2E_EMPTY_COLUMNS ((FRAME_WIDTH - 192*2) / 2)
 
 static inline void __not_in_flash_func(render_empty_scanlines)() {
     for (int y = 0; y < APPLE2E_EMPTY_LINES; y += 2) {
@@ -389,7 +430,29 @@ static inline void __not_in_flash_func(render_empty_scanlines)() {
     }
 }
 
+// apple2 column -> lcd row
+uint8_t __not_in_flash() rotate_buf[192];
+
 static inline void __not_in_flash_func(render_frame)() {
+    int apple2_offset = 0;
+    int rotate_offset = 0;
+    for (int x = 0; x < 280; x += 1) {
+      apple2_offset = x;
+      rotate_offset = 192; // -90deg
+      //rotate_offset = 0; // +90deg
+      for (int y = 0; y < 192; y += 1) {
+          uint8_t pixel = state.apple2e.fb[apple2_offset];
+          rotate_buf[--rotate_offset] = pixel; // -90deg
+          //rotate_buf[rotate_offset++] = pixel; // +90deg
+          apple2_offset += 280; // next row of apple2.fb
+      }
+      uint32_t *tmdsbuf;
+      queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
+      render_scanline((const uint32_t *)rotate_buf, (uint32_t *)(&scanbuf[APPLE2E_EMPTY_COLUMNS]), 192);
+      tmds_encode_palette_data((const uint32_t *)scanbuf, tmds_palette, tmdsbuf, FRAME_WIDTH, PALETTE_BITS);
+      queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
+    }
+/*@@  
     for (int y = 0; y < APPLE2E_SCREEN_HEIGHT; y += 2) {
         uint32_t *tmdsbuf;
         queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
@@ -404,6 +467,7 @@ static inline void __not_in_flash_func(render_frame)() {
         tmds_encode_palette_data((const uint32_t *)scanbuf, tmds_palette, tmdsbuf, FRAME_WIDTH, PALETTE_BITS);
         queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
     }
+@@*/
 }
 
 void __not_in_flash_func(core1_main()) {
