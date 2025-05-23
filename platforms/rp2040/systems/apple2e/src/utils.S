@@ -62,12 +62,22 @@ decl_func apple2e_render_scanline
 	decode_pixel_data r3
 	decode_pixel_data r4
     //@@ zoom 2x
-    //@@stmia r1!, {r3, r4}
+    //stmia r1!, {r3, r4}
     //@@ zoom 4x
-    stmia r1!, {r3}
-    stmia r1!, {r3}
-    stmia r1!, {r4}
-    stmia r1!, {r4}
+    //stmia r1!, {r3}
+    //stmia r1!, {r3}
+    //stmia r1!, {r4}
+    //stmia r1!, {r4}
+    //@@ virutal scanline: pixel, blank, pixel, blank
+    str r3, [r1]
+    adds r1, r1, #4
+    ldr r3, =0
+    str r3, [r1]
+    adds r1, r1, #4
+    str r4, [r1]
+    adds r1, r1, #4
+    str r3, [r1]
+    adds r1, r1, #4
 	cmp r1, ip
     bne 1b
 
